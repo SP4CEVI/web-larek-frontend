@@ -3,13 +3,13 @@ import { Component } from "./base/Components";
 import { IEvents } from "./base/events";
 
 
-interface IPage {
+interface Page {
   gallery: HTMLElement[];
   counter: number;
   locked: boolean;
 }
 
-export class Page extends Component<IPage> {
+export class Page extends Component<Page> {
   protected _counter: HTMLElement;
   protected _gallery: HTMLElement;
   protected _wrapper: HTMLElement;
