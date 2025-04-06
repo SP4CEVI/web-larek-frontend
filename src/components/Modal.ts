@@ -5,7 +5,7 @@ class Modal {
         this.modalElement = document.createElement('div');
         this.modalElement.classList.add('modal');
         document.body.appendChild(this.modalElement);
-        this.modalElement.style.display = 'none'; // Скрываем модальное окно по умолчанию
+        this.modalElement.style.display = 'none';
     }
 
     open(content: string): void {
