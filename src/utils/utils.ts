@@ -46,7 +46,7 @@ export function ensureElement<T extends HTMLElement>(selectorElement: SelectorEl
 
 export function cloneTemplate<T extends HTMLElement>(query: string | HTMLTemplateElement): T {
     const template = ensureElement(query) as HTMLTemplateElement;
-    return template.content.firstElementChild.cloneNode(true) as T;
+    return template.content.firstElementChild?.cloneNode(true) as T;
 }
 
 export function bem(block: string, element?: string, modifier?: string): { name: string, class: string } {
@@ -132,4 +132,8 @@ export function createElement<
         }
     }
     return element;
+}
+
+export function formatNumber(x: number, sep = ' ') {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, sep);
 }
