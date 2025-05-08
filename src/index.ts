@@ -5,15 +5,16 @@ import { cloneTemplate, ensureElement } from './utils/utils';
 
 import { EventEmitter } from './components/base/Events';
 
-import { CheckoutEvent } from './components/events/CheckoutEvents';
+import { BasketEvents } from './components/events/BasketEvents';
+import { CatalogEvents } from './components/events/CatalogEvents';
+import { OrderEvent } from './components/events/OrderEvents';
+import { ModalEvents } from './components/events/ModalEvents';
 
-import { BasketModel as BasketModel, IBasket, BasketEvents } from './components/model/BasketModel';
-import { CatalogModel, CatalogEvents } from './components/model/CatalogModel';
-import { ContactsEvent, ContactsModel as ContactsModel, IContactsChange } from './components/model/ContactsModel';
-import { ModalModel, ModalEvents } from './components/model/ModalModel';
-import { IOrderChange, OrderEvent, OrderModel } from './components/model/OrderModel';
-import { StoreModel } from './components/model/StoreModel';
-import { ISuccess, SuccessModel as SuccessModel, SuccessEvent } from './components/model/SuccessModel';
+import { BasketModel as BasketModel, IBasket } from './components/model/BasketModel';
+import { CatalogModel } from './components/model/CatalogModel';
+import { ModalModel } from './components/model/ModalModel';
+import { IOrderChange, OrderModel } from './components/model/OrderModel';
+import { StoreApi } from './components/api/StoreApi';
 
 import { BasketView, CardBasketView } from './components/view/BasketView';
 import { CardPreviewView } from './components/view/CardView';
@@ -26,7 +27,7 @@ import { SuccessView } from './components/view/SuccessView';
 import { IProduct } from './types';
 
 const events = new EventEmitter();
-const api = new StoreModel(CDN_URL, API_URL);
+const api = new StoreApi(CDN_URL, API_URL);
 
 api
 	.getProductList()
@@ -54,8 +55,6 @@ const page = new PageView(document.body, {
 const catalogModel = new CatalogModel(events);
 const basketModel = new BasketModel(events);
 const orderModel = new OrderModel(events);
-const contactModel = new ContactsModel(events);
-const successModel = new SuccessModel(events);
 const modalModel = new ModalModel(events);
 
 const modal = new ModalView(ensureElement<HTMLElement>('#modal-container'), {
@@ -68,10 +67,10 @@ const basket = new BasketView(cloneTemplate(basketTemplate), {
 
 const order = new OrderView(cloneTemplate(orderTemplate), {
 	onOnlineClick: () =>
-		events.emit<Pick<IOrderChange, 'payment'>>(CheckoutEvent.PAYMENT_SELECT, { payment: 'card' }),
+		events.emit<Pick<IOrderChange, 'payment'>>(OrderEvent.PAYMENT_SELECT, { payment: 'card' }),
 
 	onOfflineClick: () =>
-		events.emit<Pick<IOrderChange, 'payment'>>(CheckoutEvent.PAYMENT_SELECT, { payment: 'cash' }),
+		events.emit<Pick<IOrderChange, 'payment'>>(OrderEvent.PAYMENT_SELECT, { payment: 'cash' }),
 
 	onContinueButtonClick: (event) => {
 		event.preventDefault();
@@ -80,18 +79,18 @@ const order = new OrderView(cloneTemplate(orderTemplate), {
 
 	onAddressInput: (event) => {
 		const target = event.target as HTMLInputElement;
-		events.emit<Pick<IOrderChange, 'address'>>(CheckoutEvent.ADDRESS_INPUT, { address: target.value });
+		events.emit<Pick<IOrderChange, 'address'>>(OrderEvent.ADDRESS_INPUT, { address: target.value });
 	},
 });
 
 const contacts = new ContactsView(cloneTemplate(contactsTemplate), {
 	onEmailInput: (event) => {
 		const target = event.target as HTMLInputElement;
-		events.emit<Pick<IContactsChange, 'email'>>(CheckoutEvent.EMAIL_INPUT, { email: target.value });
+		events.emit<Pick<IOrderChange, 'email'>>(OrderEvent.EMAIL_INPUT, { email: target.value });
 	},
 	onPhoneInput: (event) => {
 		const target = event.target as HTMLInputElement;
-		events.emit<Pick<IContactsChange, 'phone'>>(CheckoutEvent.PHONE_INPUT, {phone: target.value });
+		events.emit<Pick<IOrderChange, 'phone'>>(OrderEvent.PHONE_INPUT, {phone: target.value });
 	},
 	onToPayButtonClick: (event) => {
 		event.preventDefault();
@@ -101,13 +100,13 @@ const contacts = new ContactsView(cloneTemplate(contactsTemplate), {
 				total: basketModel.getTotal(),
 				payment: orderModel.getPayment(),
 				address: orderModel.getAddress(),
-				email: contactModel.getEmail(),
-				phone: contactModel.getPhone(),
+				email: orderModel.getEmail(),
+				phone: orderModel.getPhone(),
 			})
 			.then(() => {
-				successModel.setTotal(basketModel.getTotal());
+				const total = basketModel.getTotal();
 				basketModel.clear();
-				events.emit(ModalEvents.SUCCESS);
+				events.emit(ModalEvents.SUCCESS, { total });
 			})
 			.catch((error) => {
 				console.error(error);
@@ -180,8 +179,8 @@ events.on(ModalEvents.CONTACTS, () => {
 	modalModel.open();
 });
 
-events.on(ModalEvents.SUCCESS, () => {
-	modal.render({ content: success.render({}) });
+events.on(ModalEvents.SUCCESS, (data: { total: number }) => {
+	modal.render({ content: success.render(data) });
 	modalModel.open();
 });
 
@@ -244,12 +243,12 @@ events.on(BasketEvents.CHANGED, (data: IBasket) => {
 	});
 });
 
-events.on(CheckoutEvent.PAYMENT_SELECT, (data: Pick<IOrderChange, 'payment'>) => {
+events.on(OrderEvent.PAYMENT_SELECT, (data: Pick<IOrderChange, 'payment'>) => {
 		orderModel.setPayment(data.payment);
 	}
 );
 
-events.on(CheckoutEvent.ADDRESS_INPUT, (data: Pick<IOrderChange, 'address'>) => {
+events.on(OrderEvent.ADDRESS_INPUT, (data: Pick<IOrderChange, 'address'>) => {
 		orderModel.setAddress(data.address);
 	}
 );
@@ -263,7 +262,7 @@ events.on(OrderEvent.ORDER_CHANGED, (data: IOrderChange) => {
 	});
 });
 
-events.on(ContactsEvent.CONTACTS_CHANGED, (data: IContactsChange) => {
+events.on(OrderEvent.CONTACTS_CHANGED, (data: IOrderChange) => {
 	contacts.render({
 		email: data.email,
 		phone: data.phone,
@@ -272,14 +271,10 @@ events.on(ContactsEvent.CONTACTS_CHANGED, (data: IContactsChange) => {
 	});
 });
 
-events.on(CheckoutEvent.EMAIL_INPUT, (data: Pick<IContactsChange, 'email'>) => {
-	contactModel.setEmail(data.email);
+events.on(OrderEvent.EMAIL_INPUT, (data: Pick<IOrderChange, 'email'>) => {
+	orderModel.setEmail(data.email);
 });
 
-events.on(CheckoutEvent.PHONE_INPUT, (data: Pick<IContactsChange, 'phone'>) => {
-	contactModel.setPhone(data.phone);
-});
-
-events.on(SuccessEvent.CHANGED, (data: ISuccess) => {
-	success.render({ total: data.total })
+events.on(OrderEvent.PHONE_INPUT, (data: Pick<IOrderChange, 'phone'>) => {
+	orderModel.setPhone(data.phone);
 });
