@@ -256,10 +256,10 @@ yarn build
 
   Поля:
  
- - `address: string` - адрес доставки;
- - `payment?`: PaymentMethod` - способ оплаты (необязательный);
- - `email: string` - email пользователя;
- - `phone: string` - телефон пользователя;
+ - `address?: string` - адрес доставки;
+ - `payment?`: PaymentMethod` - способ оплаты;
+ - `email?: string` - email пользователя;
+ - `phone?: string` - телефон пользователя;
  - `isValid: boolean` - указатель на валидность полей;
  - `error: string` - сообщение об ошибке.
  
